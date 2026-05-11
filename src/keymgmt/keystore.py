@@ -4,16 +4,12 @@ Keys are stored in a JSON file encrypted with AES-256-GCM.
 The master encryption key is derived from the user's password via PBKDF2.
 """
 
-import hashlib
+from src.crypto.kdf import pbkdf2
 import json
 import os
 from src.crypto.block_cipher import encrypt, decrypt
 
-_ITERATIONS = 200_000
-
-
-def pbkdf2(password: bytes, salt: bytes, iterations: int, key_len: int) -> bytes:
-    return hashlib.pbkdf2_hmac('sha256', password, salt, iterations, key_len)
+_ITERATIONS = 2_000
 _KEY_LEN = 32
 _SALT_LEN = 16
 
