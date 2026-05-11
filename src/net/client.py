@@ -7,8 +7,20 @@ import socket
 import threading
 
 from src.auth.session import verify_token
-from src.crypto.public_key import generate_keypair
+from src.crypto.public_key import generate_keypair, encrypt as rsa_encrypt
 from src.keymgmt.key_exchange import unwrap_session_key
+import os
+
+def _verify_server_key(pub_key_pem: bytes) -> None:
+    pin_file = "pinned_server_pub.pem"
+    if os.path.exists(pin_file):
+        with open(pin_file, "rb") as f:
+            pinned = f.read()
+        if pinned != pub_key_pem:
+            raise ConnectionError("Server identity mismatch! MITM attack detected.")
+    else:
+        with open(pin_file, "wb") as f:
+            f.write(pub_key_pem)
 from src.net.protocol import (
     MSG_AUTH_FAIL, MSG_AUTH_OK, MSG_CLIENT_HELLO,
     MSG_LOGIN_REQUEST, MSG_REGISTER_FAIL, MSG_REGISTER_OK,
@@ -20,8 +32,7 @@ from src.net.protocol import (
 def register_remote(host: str, port: int, username: str, password: str) -> None:
     """Register a new user on the server. Raises ValueError on failure."""
     import socket
-    from src.crypto.public_key import generate_keypair
-    _, pub = generate_keypair()
+    pub = b"dummy_key_for_registration"
     sock = socket.create_connection((host, port))
     try:
         send_json(sock, {
@@ -29,11 +40,14 @@ def register_remote(host: str, port: int, username: str, password: str) -> None:
             'username': username,
             'public_key': pub.decode(),
         })
-        recv_json(sock)  # ServerHello (ignored for registration)
+        hello = recv_json(sock)
+        server_pub = hello['public_key'].encode()
+        _verify_server_key(server_pub)
+        enc_pw = rsa_encrypt(server_pub, password.encode()).hex()
         send_json(sock, {
             'type': MSG_REGISTER_REQUEST,
             'username': username,
-            'password': password,
+            'password': enc_pw,
         })
         resp = recv_json(sock)
         if resp.get('type') == MSG_REGISTER_OK:
@@ -48,6 +62,7 @@ class ChatClient:
         self._host = host
         self._port = port
         self._username = username
+        print("Generating RSA encryption keys... (this might take a few seconds)")
         self._priv, self._pub = generate_keypair()
         self._session_key: bytes | None = None
         self._server_pub: bytes | None = None
@@ -68,11 +83,13 @@ class ChatClient:
         if hello.get('type') != MSG_SERVER_HELLO:
             raise ConnectionError(f"Unexpected server response: {hello}")
         self._server_pub = hello['public_key'].encode()
+        _verify_server_key(self._server_pub)
 
+        enc_pw = rsa_encrypt(self._server_pub, password.encode()).hex()
         send_json(self._sock, {
             'type': MSG_LOGIN_REQUEST,
             'username': self._username,
-            'password': password,
+            'password': enc_pw,
         })
 
         auth = recv_json(self._sock)
