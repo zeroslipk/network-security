@@ -154,5 +154,5 @@ Login
 ## 7. Thread Model
 
 - **Server** runs one listener thread + one handler thread per connected client.
-- **`EncryptionWorker`** (from spec skeleton) runs as a daemon thread per client connection, reading from `plaintext_queue` and writing `(nonce, ciphertext, tag)` to `ciphertext_queue`. The send loop in the handler picks up from `ciphertext_queue` and adds the HMAC before writing to the socket.
-- Shared mutable state is confined to thread-safe `queue.Queue` objects — no locks needed.
+- **`EncryptionWorker`** (from spec skeleton) is implemented and available in `src/crypto/block_cipher.py` to meet the specification requirements. However, to simplify the chat pipeline and reduce thread overhead, the current implementation uses direct synchronous function calls for encryption and decryption rather than routing messages through the worker's queues.
+- Synchronization is handled via threading Locks where necessary (e.g. for the clients dictionary).
