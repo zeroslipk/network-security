@@ -2,6 +2,7 @@
 TCP chat client.
 Connects to the server, completes the handshake, then enters a chat REPL.
 """
+from __future__ import annotations
 
 import socket
 import threading

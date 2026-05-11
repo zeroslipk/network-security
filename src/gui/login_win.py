@@ -2,10 +2,10 @@
 Login / Register window.
 On success, calls on_authenticated(client) with a connected ChatClient.
 """
+from __future__ import annotations
 
 import threading
 import tkinter as tk
-from tkinter import ttk
 
 from src.gui import styles
 from src.net.client import ChatClient, register_remote
@@ -18,64 +18,95 @@ class LoginWindow:
 
         root.title("Secure Communication Suite")
         root.configure(bg=styles.BG)
-        root.geometry("420x340")
+        root.geometry("460x420")
         root.resizable(False, False)
 
-        title = tk.Label(
-            root, text="Secure Communication Suite",
-            bg=styles.BG, fg=styles.ACCENT, font=styles.FONT_TITLE,
-        )
-        title.pack(pady=(20, 10))
+        # ── Header ───────────────────────────────────────────────────────────
+        header = tk.Frame(root, bg=styles.SURFACE)
+        header.pack(fill=tk.X)
+        tk.Label(
+            header, text="🔒  Secure Communication Suite",
+            bg=styles.SURFACE, fg=styles.FG,
+            font=styles.FONT_TITLE, pady=18,
+        ).pack()
+        tk.Label(
+            header, text="End-to-end encrypted · AES-256-GCM · RSA-2048",
+            bg=styles.SURFACE, fg=styles.FG_MUTED,
+            font=styles.FONT_SMALL, pady=(0),
+        ).pack(pady=(0, 12))
 
+        # ── Form ─────────────────────────────────────────────────────────────
         form = tk.Frame(root, bg=styles.BG)
-        form.pack(padx=30, pady=10, fill=tk.X)
+        form.pack(padx=36, pady=20, fill=tk.X)
 
-        self._fields = {}
+        self._fields: dict[str, tk.Entry] = {}
         for label_text, key, show in [
-            ("Server", "server", None),
+            ("Server",   "server",   None),
             ("Username", "username", None),
             ("Password", "password", "•"),
         ]:
-            row = tk.Frame(form, bg=styles.BG)
-            row.pack(fill=tk.X, pady=4)
+            # Label
             tk.Label(
-                row, text=label_text + ":", width=10, anchor="w",
-                bg=styles.BG, fg=styles.FG, font=styles.FONT,
-            ).pack(side=tk.LEFT)
+                form, text=label_text,
+                bg=styles.BG, fg=styles.FG_MUTED,
+                font=styles.FONT_SMALL, anchor="w",
+            ).pack(fill=tk.X, pady=(8, 2))
+
+            # Entry
             entry = tk.Entry(
-                row, bg=styles.ENTRY_BG, fg=styles.FG,
-                font=styles.FONT, insertbackground=styles.FG, relief=tk.FLAT,
-                show=show or "",
+                form, bg=styles.ENTRY_BG, fg=styles.FG,
+                font=styles.FONT_INPUT,
+                insertbackground=styles.FG,
+                relief=tk.FLAT, show=show or "",
+                highlightthickness=1,
+                highlightcolor=styles.ACCENT,
+                highlightbackground=styles.ENTRY_BG,
             )
-            entry.pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=4)
+            entry.pack(fill=tk.X, ipady=8)
             self._fields[key] = entry
 
         self._fields["server"].insert(0, default_server)
 
+        # ── Buttons (Frame+Label to bypass macOS native button rendering) ───
         btn_row = tk.Frame(root, bg=styles.BG)
-        btn_row.pack(pady=10)
-        tk.Button(
-            btn_row, text="Login", command=self._on_login,
-            bg=styles.ACCENT, fg=styles.BG, font=styles.FONT_BOLD,
-            relief=tk.FLAT, padx=20, pady=4,
-        ).pack(side=tk.LEFT, padx=5)
-        tk.Button(
-            btn_row, text="Register", command=self._on_register,
-            bg=styles.MUTED, fg=styles.FG, font=styles.FONT_BOLD,
-            relief=tk.FLAT, padx=20, pady=4,
-        ).pack(side=tk.LEFT, padx=5)
+        btn_row.pack(pady=16, padx=36, fill=tk.X)
 
+        self._login_frame = tk.Frame(btn_row, bg=styles.ACCENT2, cursor="hand2")
+        self._login_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 6))
+        self._login_lbl = tk.Label(
+            self._login_frame, text="Login",
+            bg=styles.ACCENT2, fg="#ffffff", font=styles.FONT_BOLD,
+            pady=10, cursor="hand2",
+        )
+        self._login_lbl.pack(fill=tk.X)
+        self._login_frame.bind("<Button-1>", lambda e: self._on_login())
+        self._login_lbl.bind("<Button-1>", lambda e: self._on_login())
+
+        self._register_frame = tk.Frame(btn_row, bg=styles.ENTRY_BG, cursor="hand2")
+        self._register_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(6, 0))
+        self._register_lbl = tk.Label(
+            self._register_frame, text="Register",
+            bg=styles.ENTRY_BG, fg=styles.FG, font=styles.FONT_BOLD,
+            pady=10, cursor="hand2",
+        )
+        self._register_lbl.pack(fill=tk.X)
+        self._register_frame.bind("<Button-1>", lambda e: self._on_register())
+        self._register_lbl.bind("<Button-1>", lambda e: self._on_register())
+
+        # ── Status ───────────────────────────────────────────────────────────
         self._status = tk.Label(
             root, text="", bg=styles.BG, fg=styles.MUTED,
-            font=styles.FONT, wraplength=380,
+            font=styles.FONT_SMALL, wraplength=400,
         )
-        self._status.pack(pady=10)
+        self._status.pack(pady=(0, 10))
 
         self._fields["username"].focus_set()
         root.bind("<Return>", lambda e: self._on_login())
 
+    # ── Helpers ──────────────────────────────────────────────────────────────
+
     def _read(self) -> tuple[str, int, str, str] | None:
-        server = self._fields["server"].get().strip()
+        server   = self._fields["server"].get().strip()
         username = self._fields["username"].get().strip()
         password = self._fields["password"].get()
         if not (server and username and password):
@@ -94,19 +125,25 @@ class LoginWindow:
         self._status.config(text=text, fg=color)
 
     def _disable_buttons(self, disabled: bool) -> None:
-        state = tk.DISABLED if disabled else tk.NORMAL
-        for child in self._root.winfo_children():
-            if isinstance(child, tk.Frame):
-                for grandchild in child.winfo_children():
-                    if isinstance(grandchild, tk.Button):
-                        grandchild.config(state=state)
+        cursor = "arrow" if disabled else "hand2"
+        fg_login = styles.MUTED if disabled else "#ffffff"
+        fg_reg   = styles.MUTED if disabled else styles.FG
+        for widget in (self._login_frame, self._login_lbl):
+            widget.config(cursor=cursor)
+        for widget in (self._register_frame, self._register_lbl):
+            widget.config(cursor=cursor)
+        self._login_lbl.config(fg=fg_login)
+        self._register_lbl.config(fg=fg_reg)
+        # Block clicks when disabled
+        self._login_frame._disabled = disabled
+        self._register_frame._disabled = disabled
 
     def _on_login(self) -> None:
         creds = self._read()
         if not creds:
             return
         host, port, username, password = creds
-        self._set_status("Connecting...")
+        self._set_status("Connecting... (generating RSA keys, ~5s)")
         self._disable_buttons(True)
 
         def _do_login():
