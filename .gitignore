@@ -1,24 +1,9 @@
-# User data & secrets
 users.json
 server_key.pem
 server_pub.pem
+pinned_server_pub.pem
 *.ks
-
-# Python
 __pycache__/
-*.pyc
-*.pyo
+.pytest_cache/
 venv/
 .venv/
-*.egg-info/
-
-# Testing
-.pytest_cache/
-
-# IDE
-.vscode/
-.idea/
-
-# OS
-.DS_Store
-Thumbs.db
