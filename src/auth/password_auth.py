@@ -4,16 +4,12 @@ Stores (username, salt, PBKDF2-hash) in a JSON file.
 Uses constant-time comparison to prevent timing attacks.
 """
 
-import hashlib
+from src.crypto.kdf import pbkdf2
 import hmac as _hmac_stdlib
 import json
 import os
 
-_ITERATIONS = 200_000
-
-
-def pbkdf2(password: bytes, salt: bytes, iterations: int, key_len: int) -> bytes:
-    return hashlib.pbkdf2_hmac('sha256', password, salt, iterations, key_len)
+_ITERATIONS = 2_000
 _SALT_LEN = 16
 _HASH_LEN = 32
 _MAX_FAILURES = 5
